@@ -6,12 +6,12 @@ const revealObserver = new IntersectionObserver((entries) => {
 }, { threshold: 0.12 });
 document.querySelectorAll('.reveal').forEach((el) => revealObserver.observe(el));
 
-// Lightweight live engineering-style background: drifting points + drafting lines.
+// Lightweight live engineering-style background: subtle moving drafting field.
 const canvas = document.getElementById('live-bg');
 const ctx = canvas.getContext('2d');
 let width = 0;
 let height = 0;
-let dpr = Math.min(window.devicePixelRatio || 1, 2);
+let dpr = 1;
 const points = [];
 const mouse = { x: 0.5, y: 0.5 };
 const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -26,48 +26,57 @@ function resize() {
   canvas.style.height = `${height}px`;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  if (!points.length) {
-    const count = Math.max(18, Math.min(42, Math.round(width / 34)));
-    for (let i = 0; i < count; i++) {
-      points.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.12,
-        vy: (Math.random() - 0.5) * 0.12,
-        r: Math.random() * 1.2 + 0.4
-      });
-    }
+  points.length = 0;
+  const count = width < 600 ? 9 : Math.min(15, Math.max(10, Math.round(width / 100)));
+  for (let i = 0; i < count; i++) {
+    points.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.06,
+      vy: (Math.random() - 0.5) * 0.06,
+      r: 0.7 + Math.random() * 0.5
+    });
   }
 }
 
 function render(time = 0) {
   ctx.clearRect(0, 0, width, height);
-  const driftX = (mouse.x - 0.5) * 8;
-  const driftY = (mouse.y - 0.5) * 8;
+  const parallaxX = (mouse.x - 0.5) * 4;
+  const parallaxY = (mouse.y - 0.5) * 4;
 
-  // Fine drafting grid
-  ctx.strokeStyle = 'rgba(82,76,68,0.045)';
+  // Very faint drafting grid — intentionally quiet behind the content.
+  ctx.strokeStyle = 'rgba(82, 103, 92, 0.032)';
   ctx.lineWidth = 1;
-  const spacing = width < 600 ? 72 : 92;
-  const offsetX = ((time * 0.003) % spacing);
-  for (let x = -spacing + offsetX; x < width + spacing; x += spacing) {
-    ctx.beginPath(); ctx.moveTo(x + driftX, 0); ctx.lineTo(x + driftX, height); ctx.stroke();
+  const spacing = width < 600 ? 110 : 140;
+  const drift = isReducedMotion ? 0 : (time * 0.0015) % spacing;
+  for (let x = -spacing + drift; x < width + spacing; x += spacing) {
+    ctx.beginPath();
+    ctx.moveTo(x + parallaxX, 0);
+    ctx.lineTo(x + parallaxX, height);
+    ctx.stroke();
   }
-  for (let y = -spacing + offsetX; y < height + spacing; y += spacing) {
-    ctx.beginPath(); ctx.moveTo(0, y + driftY); ctx.lineTo(width, y + driftY); ctx.stroke();
+  for (let y = -spacing + drift; y < height + spacing; y += spacing) {
+    ctx.beginPath();
+    ctx.moveTo(0, y + parallaxY);
+    ctx.lineTo(width, y + parallaxY);
+    ctx.stroke();
   }
 
   if (!isReducedMotion) {
     points.forEach((p, i) => {
-      p.x += p.vx; p.y += p.vy;
-      if (p.x < -20) p.x = width + 20;
-      if (p.x > width + 20) p.x = -20;
-      if (p.y < -20) p.y = height + 20;
-      if (p.y > height + 20) p.y = -20;
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < -10) p.x = width + 10;
+      if (p.x > width + 10) p.x = -10;
+      if (p.y < -10) p.y = height + 10;
+      if (p.y > height + 10) p.y = -10;
+
+      const px = p.x + parallaxX * 0.35;
+      const py = p.y + parallaxY * 0.35;
 
       ctx.beginPath();
-      ctx.fillStyle = 'rgba(72,68,61,0.14)';
-      ctx.arc(p.x + driftX * 0.3, p.y + driftY * 0.3, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(72, 95, 83, 0.13)';
+      ctx.arc(px, py, p.r, 0, Math.PI * 2);
       ctx.fill();
 
       for (let j = i + 1; j < points.length; j++) {
@@ -75,11 +84,11 @@ function render(time = 0) {
         const dx = p.x - q.x;
         const dy = p.y - q.y;
         const dist = Math.hypot(dx, dy);
-        if (dist < 150) {
-          ctx.strokeStyle = `rgba(72,68,61,${0.055 * (1 - dist / 150)})`;
+        if (dist < 175) {
+          ctx.strokeStyle = `rgba(72, 95, 83, ${0.035 * (1 - dist / 175)})`;
           ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(q.x, q.y);
+          ctx.moveTo(px, py);
+          ctx.lineTo(q.x + parallaxX * 0.35, q.y + parallaxY * 0.35);
           ctx.stroke();
         }
       }
